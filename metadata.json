@@ -1,0 +1,6 @@
+{
+  "name": "Resume AI Generator",
+  "description": "Analyzes GitHub and LinkedIn profiles to generate an ATS-friendly resume tailored to current job market trends.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
