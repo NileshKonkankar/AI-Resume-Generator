@@ -24,6 +24,7 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStep, setGenerationStep] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
   const [resumeMarkdown, setResumeMarkdown] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -105,12 +106,16 @@ export default function App() {
     localStorage.setItem('lastResumeGenerationTime', Date.now().toString());
     
     setIsGenerating(true);
+    setGenerationStep('Initializing intelligence engine...');
     setError(null);
     setResumeMarkdown('');
     try {
-      const stream = await generateResumeStream(githubUrl, linkedinUrl, targetJob, additionalContext, resumeFile);
+      const stream = generateResumeStream(githubUrl, linkedinUrl, targetJob, additionalContext, resumeFile);
+      
       for await (const chunk of stream) {
-        if (chunk.text) {
+        if (chunk.type === 'status') {
+          setGenerationStep(chunk.message);
+        } else if (chunk.type === 'text' && chunk.text) {
           setResumeMarkdown(prev => prev + chunk.text);
         }
       }
@@ -363,17 +368,22 @@ export default function App() {
                 <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
               </div>
               <div className="space-y-4">
-                <h3 className="text-xl font-semibold text-zinc-900">Gathering Intelligence...</h3>
+                <h3 className="text-xl font-semibold text-zinc-900">{generationStep}</h3>
                 <p className="text-zinc-500">
-                  Analyzing profiles and performing web searches. This usually takes 5-10 seconds.
+                  We're cross-referencing your profiles to build a high-impact narrative.
                 </p>
-                <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden relative">
                   <motion.div 
                     className="h-full bg-blue-500"
                     initial={{ width: "0%" }}
                     animate={{ width: "95%" }}
-                    transition={{ duration: 15, ease: "easeOut" }}
+                    transition={{ duration: 25, ease: "linear" }}
                   />
+                </div>
+                <div className="flex justify-between text-[10px] uppercase tracking-wider font-bold text-zinc-400">
+                  <span className={generationStep.includes('GitHub') ? 'text-blue-500' : ''}>Extracting</span>
+                  <span className={generationStep.includes('Synthesizing') ? 'text-blue-500' : ''}>Structuring</span>
+                  <span className={resumeMarkdown ? 'text-blue-500' : ''}>Rendering</span>
                 </div>
               </div>
             </div>
@@ -390,7 +400,7 @@ export default function App() {
                 {isGenerating && (
                   <span className="flex items-center text-xs font-medium text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
                     <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
-                    Drafting Resume...
+                    {generationStep}
                   </span>
                 )}
               </div>

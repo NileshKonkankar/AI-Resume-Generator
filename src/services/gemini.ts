@@ -7,7 +7,7 @@ export interface ResumeFile {
   mimeType: string;
 }
 
-export async function generateResumeStream(
+export async function* generateResumeStream(
   githubUrl: string, 
   linkedinUrl: string, 
   targetJob: string, 
@@ -18,14 +18,16 @@ export async function generateResumeStream(
   const extractionPromises: Promise<string>[] = [];
 
   if (githubUrl) {
+    yield { type: 'status', message: 'Scanning GitHub repositories and evaluating project impact...' };
     extractionPromises.push(
       ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: `Use Google Search to find and extract detailed information from this GitHub profile: ${githubUrl}. 
-        CRITICAL TASK: Identify and select the 2-3 best/most significant projects based on stars, complexity, and impact. 
+        CRITICAL TASK: Identify and select the 2-3 most significant projects. 
+        PRIORITIZATION: Rank projects primarily by high star counts (popularity) and recent commit/update activity. 
         For each selected project, provide:
         - Project name
-        - Technical stack
+        - Technologies Used (explicit tech stack)
         - Impact and key features (detailed description)
         - GitHub link (if available)
         
@@ -37,6 +39,7 @@ export async function generateResumeStream(
   }
 
   if (linkedinUrl) {
+    yield { type: 'status', message: 'Extracting professional history and skills from LinkedIn...' };
     extractionPromises.push(
       ai.models.generateContent({
         model: "gemini-3-flash-preview",
@@ -50,6 +53,8 @@ export async function generateResumeStream(
   // Wait for all external search extractions to complete in parallel
   const searchResults = await Promise.all(extractionPromises);
   const searchContext = searchResults.join('\n\n');
+
+  yield { type: 'status', message: 'Synthesizing professional narrative and formatting for ATS...' };
 
   const prompt = `Target Role: ${targetJob}
 ${additionalContext ? `Context: ${additionalContext}` : ''}
@@ -79,5 +84,9 @@ Task: Generate a maximum-detail ATS resume, expanding on all the available data 
     }
   });
 
-  return responseStream;
+  for await (const chunk of responseStream) {
+    if (chunk.text) {
+      yield { type: 'text', text: chunk.text };
+    }
+  }
 }
