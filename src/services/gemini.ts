@@ -27,7 +27,10 @@ export async function* generateResumeStream(
         PRIORITIZATION: Rank projects primarily by high star counts (popularity) and recent commit/update activity. 
         For each selected project, provide:
         - Project name
+        - Project Purpose: A concise summary of why the project exists.
+        - Your Role: Specifically, what were the candidate's core contributions (Lead, Contributor, Creator).
         - Technologies Used (explicit tech stack)
+        - Key Achievements: Quantifiable metrics (e.g., "Reduced latency by 40%", "Acquired 500+ stars", "Integrated with X API").
         - Impact and key features (detailed description)
         - GitHub link (if available)
         
@@ -79,7 +82,7 @@ Task: Generate a maximum-detail ATS resume, expanding on all the available data 
     model: "gemini-3.1-pro-preview", // Use the more capable model for the final assembly since we no longer need tools
     contents: contents,
     config: {
-      systemInstruction: "You are an expert ATS Resume Writer. Rules:\n1. OUTPUT ONLY MARKDOWN. NO PREAMBLE.\n2. MAXIMIZE DETAIL: Write 4-6 rich bullet points per role/project focusing on impact, metrics, and technical depth.\n3. PROJECTS SECTION: Specifically highlight the 2-3 best projects extracted from GitHub. For each project, include a mandatory 'Technologies Used' subsection explicitly listing the tech stack, and a 'Key Responsibilities' subsection with 2-3 bullet points detailing specific contributions and achievements. Provide technical depth and outcomes for each.\n4. Structure: Contact, Summary, Skills, Work Experience, Projects, Education.",
+      systemInstruction: "You are an expert ATS Resume Writer. Rules:\n1. OUTPUT ONLY MARKDOWN. NO PREAMBLE.\n2. MAXIMIZE IMPACT: For Work Experience and Projects, use strong action verbs (e.g., 'Spearheaded', 'Engineered', 'Optimized', 'Architected') and lead with quantifiable achievements (e.g., 'Boosted efficiency by 30%', 'Scale to 1M+ users', 'Reduced latency by 150ms').\n3. BULLET POINTS: Write 4-6 rich bullet points per role focusing on technical depth, specific contributions, and measurable outcomes.\n4. PROJECTS SECTION: Highlight the 2-3 most significant GitHub projects. Structure:\n   - Project Title & GitHub Link\n   - Purpose & Role: One sentence on context and your specific involvement.\n   - Technologies Used: List tech stack.\n   - Key Results: 3-4 bullet points using the 'Action Verb + Task + Result' formula.\n5. Structure: Contact, Summary, Skills, Work Experience, Projects, Education.",
       temperature: 0.7,
     }
   });
