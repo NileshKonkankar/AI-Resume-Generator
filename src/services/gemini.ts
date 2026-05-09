@@ -24,7 +24,11 @@ export async function* generateResumeStream(
         model: "gemini-3-flash-preview",
         contents: `Use Google Search to find and extract detailed information from this GitHub profile: ${githubUrl}. 
         CRITICAL TASK: Identify and select the 2-3 most significant projects. 
-        PRIORITIZATION: Rank projects primarily by high star counts (popularity) and recent commit/update activity. 
+        PRIORITIZATION: Rank projects by multidimensional impact:
+        1. Technical Complexity: Architectural depth and engineering challenges solved.
+        2. README Quality: Clarity of documentation and articulated problem-solving.
+        3. Popularity & Activity: Star counts and recent commit velocity.
+        4. Innovation: Evidence of addressing unique needs or optimizing processes.
         For each selected project, provide:
         - Project name
         - Project Purpose: A concise summary of why the project exists.

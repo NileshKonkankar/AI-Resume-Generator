@@ -3,8 +3,11 @@ import { motion } from 'motion/react';
 import { Github, Linkedin, Briefcase, FileText, Loader2, Copy, CheckCircle2, Sparkles, Upload, X, AlertCircle, Download } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { oneLight, vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -76,12 +79,15 @@ export default function App() {
     let isValid = true;
     const errors = { github: '', linkedin: '' };
 
-    if (githubUrl && !/^https?:\/\/(www\.)?github\.com\/[A-Za-z0-9_.-]+\/?.*$/.test(githubUrl)) {
+    const githubRegex = /^https?:\/\/(www\.)?github\.com\/[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}\/?$/;
+    const linkedinRegex = /^https?:\/\/([a-z]{2,3}\.)?linkedin\.com\/in\/[a-zA-Z0-9-]{3,100}\/?$/;
+
+    if (githubUrl && !githubRegex.test(githubUrl.trim())) {
       errors.github = 'Please enter a valid GitHub profile URL (e.g., https://github.com/username)';
       isValid = false;
     }
 
-    if (linkedinUrl && !/^https?:\/\/([a-z]{2,3}\.)?linkedin\.com\/in\/[A-Za-z0-9_.-]+\/?.*$/.test(linkedinUrl)) {
+    if (linkedinUrl && !linkedinRegex.test(linkedinUrl.trim())) {
       errors.linkedin = 'Please enter a valid LinkedIn profile URL (e.g., https://linkedin.com/in/username)';
       isValid = false;
     }
@@ -419,22 +425,61 @@ export default function App() {
               <div className="max-w-3xl mx-auto bg-white border border-zinc-200 shadow-sm rounded-xl p-8 md:p-12">
                 <div className="prose prose-zinc max-w-none prose-headings:font-semibold prose-a:text-blue-600">
                   <Markdown 
-                    remarkPlugins={[remarkGfm]}
+                    remarkPlugins={[remarkGfm, remarkBreaks]}
+                    rehypePlugins={[rehypeRaw, rehypeSanitize]}
                     components={{
+                      h1: ({ children }) => <h1 className="text-3xl font-bold border-b pb-2 mb-6 text-zinc-900">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-2xl font-bold mt-8 mb-4 text-zinc-800 border-l-4 border-zinc-900 pl-4">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-xl font-semibold mt-6 mb-3 text-zinc-800">{children}</h3>,
+                      p: ({ children }) => <p className="mb-4 leading-relaxed text-zinc-700">{children}</p>,
+                      ul: ({ children }) => <ul className="list-disc list-outside ml-5 mb-4 space-y-2 text-zinc-700">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal list-outside ml-5 mb-4 space-y-2 text-zinc-700">{children}</ol>,
+                      li: ({ children }) => <li className="pl-1">{children}</li>,
+                      blockquote: ({ children }) => (
+                        <blockquote className="border-l-4 border-zinc-200 italic pl-4 my-6 text-zinc-600 bg-zinc-50 py-2 rounded-r">
+                          {children}
+                        </blockquote>
+                      ),
+                      table: ({ children }) => (
+                        <div className="overflow-x-auto my-6">
+                          <table className="min-w-full divide-y divide-zinc-200 border border-zinc-200 rounded-lg overflow-hidden">
+                            {children}
+                          </table>
+                        </div>
+                      ),
+                      thead: ({ children }) => <thead className="bg-zinc-50">{children}</thead>,
+                      th: ({ children }) => <th className="px-4 py-3 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">{children}</th>,
+                      td: ({ children }) => <td className="px-4 py-3 text-sm text-zinc-600 border-t border-zinc-100">{children}</td>,
+                      a: ({ children, href }) => (
+                        <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1 font-medium">
+                          {children}
+                        </a>
+                      ),
                       code({ className, children, ref, node, ...rest }) {
                         const match = /language-(\w+)/.exec(className || '');
                         const isInline = !match;
                         return !isInline ? (
-                          <SyntaxHighlighter
-                            {...(rest as any)}
-                            PreTag="div"
-                            children={String(children).replace(/\n$/, '')}
-                            language={match[1]}
-                            style={oneLight}
-                            className="rounded-md !my-4"
-                          />
+                          <div className="relative group my-6">
+                            <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 bg-zinc-100/50 px-2 py-1 rounded backdrop-blur-sm">
+                                {match[1]}
+                              </span>
+                            </div>
+                            <SyntaxHighlighter
+                              {...(rest as any)}
+                              PreTag="div"
+                              children={String(children).replace(/\n$/, '')}
+                              language={match[1]}
+                              style={vscDarkPlus}
+                              className="!rounded-xl !p-6 !m-0 !bg-zinc-900 border border-zinc-800 shadow-lg text-sm"
+                              customStyle={{
+                                background: '#18181b', // zinc-900
+                                margin: 0,
+                              }}
+                            />
+                          </div>
                         ) : (
-                          <code {...rest} ref={ref} className={`${className || ''} bg-zinc-100 text-pink-600 px-1 py-0.5 rounded text-sm`}>
+                          <code {...rest} ref={ref} className={`${className || ''} bg-zinc-100 text-zinc-900 px-1.5 py-0.5 rounded font-mono text-[0.9em] border border-zinc-200`}>
                             {children}
                           </code>
                         );
