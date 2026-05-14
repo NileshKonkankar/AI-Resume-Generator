@@ -368,28 +368,90 @@ export default function App() {
             </div>
           </div>
         ) : isGenerating && !resumeMarkdown ? (
-          <div className="flex-1 flex items-center justify-center p-6 text-center">
-            <div className="max-w-md space-y-6 w-full">
-              <div className="w-16 h-16 bg-blue-50 rounded-2xl mx-auto flex items-center justify-center border border-blue-100">
-                <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+          <div className="flex-1 flex flex-col h-full bg-zinc-50 overflow-hidden">
+            {/* Loading Header */}
+            <div className="h-16 border-b border-zinc-200 bg-white px-6 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <h2 className="font-semibold text-zinc-900 italic">Synthesizing...</h2>
+                <span className="flex items-center text-xs font-medium text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
+                  <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                  {generationStep}
+                </span>
               </div>
-              <div className="space-y-4">
-                <h3 className="text-xl font-semibold text-zinc-900">{generationStep}</h3>
-                <p className="text-zinc-500">
-                  We're cross-referencing your profiles to build a high-impact narrative.
-                </p>
-                <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden relative">
-                  <motion.div 
-                    className="h-full bg-blue-500"
-                    initial={{ width: "0%" }}
-                    animate={{ width: "95%" }}
-                    transition={{ duration: 25, ease: "linear" }}
-                  />
+            </div>
+
+            <div className="flex-1 p-6 md:p-12 overflow-y-auto">
+              <div className="max-w-3xl mx-auto space-y-8">
+                {/* Progress Indicator */}
+                <div className="bg-white border border-zinc-200 p-6 rounded-xl shadow-sm space-y-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">Intelligence Pipeline</span>
+                    <span className="text-xs font-bold text-blue-500">Processing...</span>
+                  </div>
+                  <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden relative">
+                    <motion.div 
+                      className="h-full bg-blue-500"
+                      initial={{ width: "0%" }}
+                      animate={{ width: "95%" }}
+                      transition={{ duration: 30, ease: "linear" }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] uppercase tracking-wider font-bold text-zinc-400">
+                    <span className={generationStep.includes('Scanning') || generationStep.includes('Extracting') ? 'text-blue-500' : ''}>Extraction</span>
+                    <span className={generationStep.includes('Synthesizing') ? 'text-blue-500' : ''}>Synthesis</span>
+                    <span className="text-zinc-300">ATS Optimization</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-[10px] uppercase tracking-wider font-bold text-zinc-400">
-                  <span className={generationStep.includes('GitHub') ? 'text-blue-500' : ''}>Extracting</span>
-                  <span className={generationStep.includes('Synthesizing') ? 'text-blue-500' : ''}>Structuring</span>
-                  <span className={resumeMarkdown ? 'text-blue-500' : ''}>Rendering</span>
+
+                {/* Resume Skeleton */}
+                <div className="bg-white border border-zinc-200 shadow-xl rounded-xl p-8 md:p-12 space-y-10 animate-pulse">
+                  {/* Header Skeleton */}
+                  <div className="space-y-4 border-b pb-8">
+                    <div className="h-10 bg-zinc-100 rounded-lg w-2/3"></div>
+                    <div className="flex gap-4">
+                      <div className="h-4 bg-zinc-50 rounded w-32"></div>
+                      <div className="h-4 bg-zinc-50 rounded w-32"></div>
+                      <div className="h-4 bg-zinc-50 rounded w-32"></div>
+                    </div>
+                  </div>
+
+                  {/* Summary Skeleton */}
+                  <div className="space-y-4">
+                    <div className="h-6 bg-zinc-100 rounded w-1/4"></div>
+                    <div className="space-y-2">
+                      <div className="h-4 bg-zinc-50 rounded w-full"></div>
+                      <div className="h-4 bg-zinc-50 rounded w-full"></div>
+                      <div className="h-4 bg-zinc-50 rounded w-3/4"></div>
+                    </div>
+                  </div>
+
+                  {/* Skills Skeleton */}
+                  <div className="space-y-4">
+                    <div className="h-6 bg-zinc-100 rounded w-1/4"></div>
+                    <div className="flex flex-wrap gap-2">
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                        <div key={i} className="h-8 bg-zinc-50 rounded-full w-20"></div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Experience Skeleton */}
+                  <div className="space-y-6">
+                    <div className="h-6 bg-zinc-100 rounded w-1/4"></div>
+                    {[1, 2].map(i => (
+                      <div key={i} className="space-y-4">
+                        <div className="flex justify-between">
+                          <div className="h-5 bg-zinc-100 rounded w-1/3"></div>
+                          <div className="h-4 bg-zinc-50 rounded w-24"></div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="h-3 bg-zinc-50 rounded w-full"></div>
+                          <div className="h-3 bg-zinc-50 rounded w-full"></div>
+                          <div className="h-3 bg-zinc-50 rounded w-5/6"></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
