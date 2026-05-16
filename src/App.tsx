@@ -484,36 +484,64 @@ export default function App() {
               </div>
             </div>
             <div className="flex-1 p-6 md:p-12 overflow-y-auto">
-              <div className="max-w-3xl mx-auto bg-white border border-zinc-200 shadow-sm rounded-xl p-8 md:p-12">
-                <div className="prose prose-zinc max-w-none prose-headings:font-semibold prose-a:text-blue-600">
+              <div className="max-w-3xl mx-auto bg-white border border-zinc-200 shadow-sm rounded-2xl p-8 md:p-12 transition-all hover:shadow-md">
+                <div className="prose prose-zinc max-w-none prose-headings:font-heading prose-headings:font-bold prose-headings:tracking-tight prose-a:text-blue-600">
                   <Markdown 
                     remarkPlugins={[remarkGfm, remarkBreaks]}
                     rehypePlugins={[rehypeRaw, rehypeSanitize]}
                     components={{
-                      h1: ({ children }) => <h1 className="text-3xl font-bold border-b pb-2 mb-6 text-zinc-900">{children}</h1>,
-                      h2: ({ children }) => <h2 className="text-2xl font-bold mt-8 mb-4 text-zinc-800 border-l-4 border-zinc-900 pl-4">{children}</h2>,
-                      h3: ({ children }) => <h3 className="text-xl font-semibold mt-6 mb-3 text-zinc-800">{children}</h3>,
-                      p: ({ children }) => <p className="mb-4 leading-relaxed text-zinc-700">{children}</p>,
-                      ul: ({ children }) => <ul className="list-disc list-outside ml-5 mb-4 space-y-2 text-zinc-700">{children}</ul>,
-                      ol: ({ children }) => <ol className="list-decimal list-outside ml-5 mb-4 space-y-2 text-zinc-700">{children}</ol>,
-                      li: ({ children }) => <li className="pl-1">{children}</li>,
+                      h1: ({ children }) => (
+                        <motion.h1 
+                          initial={{ opacity: 0, x: -10 }}
+                          whileInView={{ opacity: 1, x: 0 }}
+                          viewport={{ once: true }}
+                          className="text-4xl font-heading font-black border-b-2 border-zinc-900 pb-4 mb-8 text-zinc-900"
+                        >
+                          {children}
+                        </motion.h1>
+                      ),
+                      h2: ({ children }) => (
+                        <motion.h2 
+                          initial={{ opacity: 0, x: -10 }}
+                          whileInView={{ opacity: 1, x: 0 }}
+                          viewport={{ once: true }}
+                          transition={{ delay: 0.1 }}
+                          className="text-2xl font-heading font-bold mt-12 mb-6 text-zinc-900 flex items-center gap-3 before:content-[''] before:w-2 before:h-8 before:bg-zinc-900 before:rounded-full"
+                        >
+                          {children}
+                        </motion.h2>
+                      ),
+                      h3: ({ children }) => (
+                        <motion.h3 
+                          initial={{ opacity: 0, y: 5 }}
+                          whileInView={{ opacity: 1, y: 0 }}
+                          viewport={{ once: true }}
+                          className="text-xl font-heading font-semibold mt-8 mb-4 text-zinc-800"
+                        >
+                          {children}
+                        </motion.h3>
+                      ),
+                      p: ({ children }) => <p className="mb-6 leading-relaxed text-zinc-600 font-sans">{children}</p>,
+                      ul: ({ children }) => <ul className="list-disc list-outside ml-6 mb-6 space-y-3 text-zinc-600 font-sans">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal list-outside ml-6 mb-6 space-y-3 text-zinc-600 font-sans">{children}</ol>,
+                      li: ({ children }) => <li className="pl-2 leading-relaxed">{children}</li>,
                       blockquote: ({ children }) => (
-                        <blockquote className="border-l-4 border-zinc-200 italic pl-4 my-6 text-zinc-600 bg-zinc-50 py-2 rounded-r">
+                        <blockquote className="border-l-4 border-zinc-900 italic pl-6 my-8 text-zinc-700 bg-zinc-50 py-4 rounded-r-lg font-sans">
                           {children}
                         </blockquote>
                       ),
                       table: ({ children }) => (
-                        <div className="overflow-x-auto my-6">
-                          <table className="min-w-full divide-y divide-zinc-200 border border-zinc-200 rounded-lg overflow-hidden">
+                        <div className="overflow-x-auto my-8 rounded-xl border border-zinc-200 overflow-hidden shadow-sm">
+                          <table className="min-w-full divide-y divide-zinc-200">
                             {children}
                           </table>
                         </div>
                       ),
-                      thead: ({ children }) => <thead className="bg-zinc-50">{children}</thead>,
-                      th: ({ children }) => <th className="px-4 py-3 text-left text-xs font-bold text-zinc-500 uppercase tracking-wider">{children}</th>,
-                      td: ({ children }) => <td className="px-4 py-3 text-sm text-zinc-600 border-t border-zinc-100">{children}</td>,
+                      thead: ({ children }) => <thead className="bg-zinc-50 font-heading">{children}</thead>,
+                      th: ({ children }) => <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 uppercase tracking-widest">{children}</th>,
+                      td: ({ children }) => <td className="px-6 py-4 text-sm text-zinc-600 border-t border-zinc-100 font-sans">{children}</td>,
                       a: ({ children, href }) => (
-                        <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1 font-medium">
+                        <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 underline underline-offset-4 decoration-2 decoration-blue-100 hover:decoration-blue-300 transition-all inline-flex items-center gap-1 font-medium">
                           {children}
                         </a>
                       ),
