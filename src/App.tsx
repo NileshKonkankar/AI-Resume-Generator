@@ -115,6 +115,10 @@ export default function App() {
     setGenerationStep('Initializing intelligence engine...');
     setError(null);
     setResumeMarkdown('');
+    
+    // Yield to the browser's paint loop to ensure the disabled state, loading spinner, and skeleton loaders render immediately
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     try {
       const stream = generateResumeStream(githubUrl, linkedinUrl, targetJob, additionalContext, resumeFile);
       
@@ -330,20 +334,34 @@ export default function App() {
 
           <Button 
             type="submit" 
-            className="w-full h-12 text-base font-medium"
+            className="w-full h-12 text-base font-medium relative overflow-hidden transition-all duration-300 active:scale-[0.98]"
             disabled={isGenerating || (!githubUrl && !linkedinUrl && !resumeFile) || !targetJob}
           >
-            {isGenerating ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Analyzing Profiles...
-              </>
-            ) : (
-              <>
-                Generate Resume
-                <Sparkles className="w-4 h-4 ml-2" />
-              </>
-            )}
+            <div className="flex items-center justify-center">
+              {isGenerating ? (
+                <motion.div 
+                  key="loading"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                  className="flex items-center gap-2"
+                >
+                  <Loader2 className="w-5 h-5 animate-spin text-current" />
+                  <span>Analyzing Profiles...</span>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  key="idle"
+                  initial={{ opacity: 0, y: -15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                  className="flex items-center gap-2"
+                >
+                  <span>Generate Resume</span>
+                  <Sparkles className="w-4 h-4 text-current animate-pulse" />
+                </motion.div>
+              )}
+            </div>
           </Button>
         </form>
       </div>
