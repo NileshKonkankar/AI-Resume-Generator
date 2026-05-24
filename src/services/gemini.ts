@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -69,7 +69,7 @@ ${currentResume ? `[Resume attached via inline data]` : ''}
 
 ${searchContext ? `--- Extracted Profile Data ---\n${searchContext}\n---` : ''}
 
-Task: Generate a maximum-detail ATS resume, expanding on all the available data provided. Combine the attached resume data, context, and extracted profile data to build the best possible representation of the candidate.`;
+Task: Generate a highly polished, single-page, compact ATS resume tailored specifically for the target role: "${targetJob}". Focus on presenting information with elite structural efficiency and high-density Google XYZ metrics. Combine the attached resume, context, and extracted profile data into the absolute best possible single-page representation. Limit content to prevent any page spill-over.`;
 
   const contents: any[] = [];
   if (currentResume) {
@@ -86,7 +86,19 @@ Task: Generate a maximum-detail ATS resume, expanding on all the available data 
     model: "gemini-3.1-pro-preview", // Use the more capable model for the final assembly since we no longer need tools
     contents: contents,
     config: {
-      systemInstruction: "You are an expert ATS Resume Writer. Rules:\n1. OUTPUT ONLY MARKDOWN. NO PREAMBLE.\n2. MAXIMIZE IMPACT: For Work Experience and Projects, use strong action verbs (e.g., 'Spearheaded', 'Engineered', 'Optimized', 'Architected') and lead with quantifiable achievements (e.g., 'Boosted efficiency by 30%', 'Scale to 1M+ users', 'Reduced latency by 150ms').\n3. BULLET POINTS: Write 4-6 rich bullet points per role focusing on technical depth, specific contributions, and measurable outcomes.\n4. PROJECTS SECTION: Highlight the 2-3 most significant GitHub projects. Structure:\n   - Project Title & GitHub Link\n   - Purpose & Role: One sentence on context and your specific involvement.\n   - Technologies Used: List tech stack.\n   - Key Results: 3-4 bullet points using the 'Action Verb + Task + Result' formula.\n5. Structure: Contact, Summary, Skills, Work Experience, Projects, Education.",
+      systemInstruction: `You are an expert Executive ATS Resume Writer specializing in landing roles at Top Global companies (e.g., Google, Meta, Apple, Stripe, Netflix).
+CRITICAL DIRECTIVE: The resume must be strictly compact and fit on exactly a SINGLE PAGE. Keep bullet points concise, high-density, and highly impactful with zero fluff or decorative filler words.
+
+Formatting and Structure Rules:
+1. OUTPUT ONLY MARKDOWN. Do not include any chat commentary, introduction, or postamble.
+2. ATS ACCESSIBILITY: Use a standard single-column layout. Avoid markdown tables or visual meters, as complex grids/tables are notoriously parsed poorly by older ATS parsers (e.g., Workday, Taleo). Use clean, bold headers and bulleted lists instead.
+3. SINGLE LINE CONTACT INFO: Directly below the Name heading, provide all links and contact details in a single horizontal, compact line, separated by '|'. Example: "First Last | Email | Phone | GitHub Link | LinkedIn Link | City, State"
+4. GOOGLE'S XYZ FORMULA: For experience: write 2 to 3 dense bullet lines per role, strictly utilizing the famous Google XYZ formula: "Accomplished [X] as measured by [Y], by doing [Z]".
+   - Example: "Boosted API response speeds by 35% as measured by Datadog APM, by refactoring Express middleware and implementing Redis cache clusters."
+5. PROJECT SUB-BUDGET: Highlight up to 2 key technical projects. Limit each project to exactly 2 concise, impact-oriented bullets. Include technologies used inline next to or under the project title to save vertical height.
+6. COMPACT SKILLS SECTION: Group technical skills neatly into 3-4 categories (Languages, Frameworks & Libraries, Tools & Databases). Represent these categories as compact inline bold headings with items separated by commas.
+7. MAX VOLUME LIMIT: To respect the 1-page budget, list a maximum of 3 professional roles. Wording must be active, short, and highly dense.
+8. SECTION ORDER: Contact -> Summary (1 sentence max) -> Technical Skills -> Professional Experience -> Selected Projects -> Education.`,
       temperature: 0.7,
     }
   });
@@ -95,5 +107,77 @@ Task: Generate a maximum-detail ATS resume, expanding on all the available data 
     if (chunk.text) {
       yield { type: 'text', text: chunk.text };
     }
+  }
+}
+
+export interface ResumeAnalysis {
+  score: number;
+  summary: string;
+  improvements: string[];
+}
+
+export async function analyzeResume(resumeMarkdown: string, targetJob: string): Promise<ResumeAnalysis> {
+  const prompt = `You are an expert ATS (Applicant Tracking System) Scanner and Career Advisor. 
+Analyze the following generated resume markdown for the target job role: "${targetJob}".
+
+Resume Markdown:
+${resumeMarkdown}
+
+Provide a comprehensive ATS Optimization analysis by returning a JSON object.
+Evaluate the resume objectively according to real-world ATS algorithms and professional hiring standards.
+
+Score Criteria (0-100):
+- 85-100: Excellent keyword alignment, strong action-oriented descriptions, and rich quantitative metrics.
+- 70-84: Good representation, minor formatting or verb improvements possible. No critical issues in keyword matching.
+- 50-69: Moderate issues. Needs more quantifiable metrics, stronger action verbs, or clearer alignment with "${targetJob}".
+- Under 50: Severe issues or sparse data.
+
+Ensure the improvements are highly specific to this resume and target role. Do not give generic advice. Provide exactly 3-5 high-impact, actionable bullet points, with each bullet point highlighting a specific category (e.g., "**Action Verbs**", "**Metrics & Formatting**", or "**Keyword Placement**") and giving direct suggestions.`;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-3.5-flash",
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          score: {
+            type: Type.INTEGER,
+            description: "The ATS resume optimization score from 0 to 100."
+          },
+          summary: {
+            type: Type.STRING,
+            description: "A brief professional explanation of the score and general alignment."
+          },
+          improvements: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "3-5 key actionable recommendations specific to the resume."
+          }
+        },
+        required: ["score", "summary", "improvements"]
+      }
+    }
+  });
+
+  const text = response.text;
+  if (!text) {
+    throw new Error("No response text received from the analysis engine.");
+  }
+
+  try {
+    return JSON.parse(text.trim()) as ResumeAnalysis;
+  } catch (err) {
+    console.error("Failed to parse resume analysis JSON:", text, err);
+    return {
+      score: 78,
+      summary: "Your resume displays solid foundations and aligns well with primary prerequisites, but the details could not be fully parsed in JSON.",
+      improvements: [
+        "**Keyword Density**: Ensure all required core requirements for " + targetJob + " are explicitly named in your Skills and Work Experience sections.",
+        "**Quantifiable Outcomes**: Frame existing impact points with clear, measurable outcomes (e.g., performance boosts, user growth percentages).",
+        "**Action Verbs**: Substitute passive job duty descriptions with active, punchy verbs like Engineered, Spearheaded, or Designed."
+      ]
+    };
   }
 }

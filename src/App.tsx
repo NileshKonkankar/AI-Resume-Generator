@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { generateResumeStream, ResumeFile } from './services/gemini';
+import { generateResumeStream, ResumeFile, analyzeResume, ResumeAnalysis } from './services/gemini';
 
 export default function App() {
   const [githubUrl, setGithubUrl] = useState('');
@@ -32,6 +32,10 @@ export default function App() {
   const [resumeMarkdown, setResumeMarkdown] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const [atsScore, setAtsScore] = useState<ResumeAnalysis | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -115,18 +119,36 @@ export default function App() {
     setGenerationStep('Initializing intelligence engine...');
     setError(null);
     setResumeMarkdown('');
+    setAtsScore(null);
+    setAnalysisError(null);
     
     // Yield to the browser's paint loop to ensure the disabled state, loading spinner, and skeleton loaders render immediately
     await new Promise(resolve => setTimeout(resolve, 100));
 
     try {
+      let finalMarkdown = '';
       const stream = generateResumeStream(githubUrl, linkedinUrl, targetJob, additionalContext, resumeFile);
       
       for await (const chunk of stream) {
         if (chunk.type === 'status') {
           setGenerationStep(chunk.message);
         } else if (chunk.type === 'text' && chunk.text) {
-          setResumeMarkdown(prev => prev + chunk.text);
+          finalMarkdown += chunk.text;
+          setResumeMarkdown(finalMarkdown);
+        }
+      }
+
+      if (finalMarkdown) {
+        setIsAnalyzing(true);
+        setGenerationStep('Executing ATS intelligent scan...');
+        try {
+          const analysisResult = await analyzeResume(finalMarkdown, targetJob);
+          setAtsScore(analysisResult);
+        } catch (analysisErr) {
+          console.error("Analysis failed during auto-generation:", analysisErr);
+          setAnalysisError("Failed to calculate ATS score automatically.");
+        } finally {
+          setIsAnalyzing(false);
         }
       }
     } catch (err: any) {
@@ -151,6 +173,21 @@ export default function App() {
       setError(errorMessage);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleReAnalyze = async () => {
+    if (!resumeMarkdown) return;
+    setIsAnalyzing(true);
+    setAnalysisError(null);
+    try {
+      const analysisResult = await analyzeResume(resumeMarkdown, targetJob);
+      setAtsScore(analysisResult);
+    } catch (err: any) {
+      console.error("Re-analysis failed:", err);
+      setAnalysisError("Failed to recalculate ATS score.");
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -421,51 +458,36 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Resume Skeleton */}
-                <div className="bg-white border border-zinc-200 shadow-xl rounded-xl p-8 md:p-12 space-y-10 animate-pulse">
-                  {/* Header Skeleton */}
-                  <div className="space-y-4 border-b pb-8">
-                    <div className="h-10 bg-zinc-100 rounded-lg w-2/3"></div>
-                    <div className="flex gap-4">
-                      <div className="h-4 bg-zinc-50 rounded w-32"></div>
-                      <div className="h-4 bg-zinc-50 rounded w-32"></div>
-                      <div className="h-4 bg-zinc-50 rounded w-32"></div>
-                    </div>
-                  </div>
-
-                  {/* Summary Skeleton */}
-                  <div className="space-y-4">
-                    <div className="h-6 bg-zinc-100 rounded w-1/4"></div>
-                    <div className="space-y-2">
-                      <div className="h-4 bg-zinc-50 rounded w-full"></div>
-                      <div className="h-4 bg-zinc-50 rounded w-full"></div>
-                      <div className="h-4 bg-zinc-50 rounded w-3/4"></div>
-                    </div>
+                 {/* Resume Skeleton */}
+                <div className="bg-white border border-zinc-200 shadow-xl rounded-2xl p-6 md:p-10 space-y-6 animate-pulse">
+                  {/* Header Skeleton Centered */}
+                  <div className="space-y-3 pb-4 border-b border-zinc-100 flex flex-col items-center">
+                    <div className="h-8 bg-zinc-100 rounded-md w-1/2"></div>
+                    <div className="h-4 bg-zinc-50 rounded w-2/3"></div>
                   </div>
 
                   {/* Skills Skeleton */}
-                  <div className="space-y-4">
-                    <div className="h-6 bg-zinc-100 rounded w-1/4"></div>
-                    <div className="flex flex-wrap gap-2">
-                      {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-                        <div key={i} className="h-8 bg-zinc-50 rounded-full w-20"></div>
-                      ))}
+                  <div className="space-y-2 pb-2 border-b border-zinc-100">
+                    <div className="h-4 bg-zinc-100 rounded w-16"></div>
+                    <div className="space-y-1.5">
+                      <div className="h-3 bg-zinc-50 rounded w-full"></div>
+                      <div className="h-3 bg-zinc-50 rounded w-5/6"></div>
                     </div>
                   </div>
 
                   {/* Experience Skeleton */}
-                  <div className="space-y-6">
-                    <div className="h-6 bg-zinc-100 rounded w-1/4"></div>
+                  <div className="space-y-4">
+                    <div className="h-4 bg-zinc-100 rounded w-32 border-b border-zinc-100 pb-1"></div>
                     {[1, 2].map(i => (
-                      <div key={i} className="space-y-4">
+                      <div key={i} className="space-y-2">
                         <div className="flex justify-between">
-                          <div className="h-5 bg-zinc-100 rounded w-1/3"></div>
-                          <div className="h-4 bg-zinc-50 rounded w-24"></div>
+                          <div className="h-4 bg-zinc-100 rounded w-2/5"></div>
+                          <div className="h-3.5 bg-zinc-50 rounded w-16"></div>
                         </div>
-                        <div className="space-y-2">
-                          <div className="h-3 bg-zinc-50 rounded w-full"></div>
-                          <div className="h-3 bg-zinc-50 rounded w-full"></div>
-                          <div className="h-3 bg-zinc-50 rounded w-5/6"></div>
+                        <div className="space-y-1.5 pl-2 border-l-2 border-zinc-50">
+                          <div className="h-2.5 bg-zinc-50 rounded w-full"></div>
+                          <div className="h-2.5 bg-zinc-50 rounded w-full"></div>
+                          <div className="h-2.5 bg-zinc-50 rounded w-11/12"></div>
                         </div>
                       </div>
                     ))}
@@ -502,47 +524,228 @@ export default function App() {
               </div>
             </div>
             <div className="flex-1 p-6 md:p-12 overflow-y-auto">
-              <div className="max-w-3xl mx-auto bg-white border border-zinc-200 shadow-sm rounded-2xl p-8 md:p-12 transition-all hover:shadow-md">
-                <div className="prose prose-zinc max-w-none prose-headings:font-heading prose-headings:font-bold prose-headings:tracking-tight prose-a:text-blue-600">
+              <div className="max-w-3xl mx-auto space-y-8">
+                {/* Scorecard Skeleton Loader */}
+                {isAnalyzing && (
+                  <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm p-6 md:p-8 space-y-6 animate-pulse" id="ats-scorecard-skeleton">
+                    <div className="flex justify-between items-center pb-4 border-b border-zinc-100">
+                      <div className="space-y-2">
+                        <div className="h-5 bg-zinc-100 rounded w-48"></div>
+                        <div className="h-3 bg-zinc-50 rounded w-64"></div>
+                      </div>
+                      <div className="h-8 bg-zinc-100 rounded w-24"></div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-center">
+                      <div className="flex flex-col items-center justify-center space-y-3 md:border-r border-zinc-100 md:pr-6">
+                        <div className="w-16 h-16 border-4 border-zinc-100 border-t-zinc-400 rounded-full animate-spin"></div>
+                        <div className="h-5 bg-zinc-100 rounded w-20"></div>
+                      </div>
+                      <div className="md:col-span-3 space-y-4">
+                        <div className="h-4 bg-zinc-100 rounded w-3/4"></div>
+                        <div className="space-y-2">
+                          <div className="h-3 bg-zinc-50 rounded w-full"></div>
+                          <div className="h-3 bg-zinc-50 rounded w-full"></div>
+                          <div className="h-3 bg-zinc-50 rounded w-2/3"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Scorecard Component */}
+                {atsScore && !isAnalyzing && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white border border-zinc-200 rounded-2xl shadow-sm p-6 md:p-8 space-y-6"
+                    id="ats-scorecard"
+                  >
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-zinc-100">
+                      <div>
+                        <h3 className="text-lg font-bold font-heading text-zinc-900 flex items-center gap-2">
+                          <Sparkles className="w-5 h-5 text-blue-500 animate-pulse" />
+                          ATS Scorecard & Optimization
+                        </h3>
+                        <p className="text-xs text-zinc-500">Real-time analysis against professional ATS requirements for {targetJob}</p>
+                      </div>
+                      <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={handleReAnalyze}
+                          disabled={isAnalyzing}
+                          className="text-xs font-medium text-zinc-600 hover:text-blue-600 gap-1.5"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          Re-evaluate
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-center">
+                      {/* Score gauge */}
+                      <div className="flex flex-col items-center justify-center md:border-r border-zinc-100 md:pr-6 py-2">
+                        <div className="relative w-24 h-24 flex items-center justify-center">
+                          {/* SVG ring background */}
+                          <svg className="absolute w-full h-full transform -rotate-90">
+                            <circle
+                              cx="48"
+                              cy="48"
+                              r="40"
+                              stroke="#f1f5f9"
+                              strokeWidth="8"
+                              fill="transparent"
+                            />
+                            <motion.circle
+                              cx="48"
+                              cy="48"
+                              r="40"
+                              stroke={
+                                atsScore.score >= 85 ? "#10b981" : 
+                                atsScore.score >= 70 ? "#f59e0b" : 
+                                "#ef4444"
+                              }
+                              strokeWidth="8"
+                              fill="transparent"
+                              strokeDasharray={251.2}
+                              initial={{ strokeDashoffset: 251.2 }}
+                              animate={{ strokeDashoffset: 251.2 - (251.2 * atsScore.score) / 100 }}
+                              transition={{ duration: 1.2, ease: "easeOut" }}
+                            />
+                          </svg>
+                          <span className="text-2xl font-black font-heading tracking-tight text-zinc-900">
+                            {atsScore.score}
+                          </span>
+                        </div>
+                        <div className="mt-2 text-center">
+                          <span className={`text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full border ${
+                            atsScore.score >= 85 ? "bg-emerald-50 text-emerald-700 border-emerald-100" : 
+                            atsScore.score >= 70 ? "bg-amber-50 text-amber-700 border-amber-100" : 
+                            "bg-rose-50 text-rose-700 border-rose-100"
+                          }`}>
+                            {atsScore.score >= 85 ? "Strong Match" : 
+                             atsScore.score >= 70 ? "Good Candidate" : 
+                             "Needs Tuning"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Summary and improvements */}
+                      <div className="md:col-span-3 space-y-4">
+                        <p className="text-sm text-zinc-600 leading-relaxed font-sans italic border-l-2 border-zinc-200 pl-4">
+                          "{atsScore.summary}"
+                        </p>
+                        
+                        <div className="space-y-3">
+                          <h4 className="text-xs font-bold uppercase tracking-widest text-zinc-400">Actionable Recommendations:</h4>
+                          <ul className="space-y-2.5">
+                            {atsScore.improvements.map((improvement, index) => {
+                              const parts = improvement.split('**');
+                              if (parts.length >= 3) {
+                                const category = parts[1];
+                                const detail = parts.slice(2).join('**');
+                                return (
+                                  <motion.li 
+                                    key={index} 
+                                    initial={{ opacity: 0, x: 10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: index * 0.1 }}
+                                    className="flex items-start gap-2 text-xs md:text-sm text-zinc-600 leading-relaxed"
+                                  >
+                                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                                    <span className="font-sans">
+                                      <strong className="text-zinc-800 font-semibold">{category}</strong>
+                                      {detail}
+                                    </span>
+                                  </motion.li>
+                                );
+                              }
+                              return (
+                                <motion.li 
+                                  key={index}
+                                  initial={{ opacity: 0, x: 10 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: index * 0.1 }}
+                                  className="flex items-start gap-2 text-xs md:text-sm text-zinc-600 leading-relaxed"
+                                >
+                                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                                  <span className="font-sans">{improvement}</span>
+                                </motion.li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Analysis Error State */}
+                {analysisError && (
+                  <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-600 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                    <span>{analysisError}</span>
+                    <Button variant="link" size="sm" onClick={handleReAnalyze} className="text-red-700 p-0 h-auto font-semibold ml-auto">
+                      Retry Scan
+                    </Button>
+                  </div>
+                )}
+
+                <div className="bg-white border border-zinc-200 shadow-md rounded-2xl p-6 md:p-10 transition-all hover:shadow-lg">
+                <div className="prose prose-zinc max-w-none prose-a:text-blue-600">
                   <Markdown 
                     remarkPlugins={[remarkGfm, remarkBreaks]}
                     rehypePlugins={[rehypeRaw, rehypeSanitize]}
                     components={{
                       h1: ({ children }) => (
                         <motion.h1 
-                          initial={{ opacity: 0, x: -10 }}
-                          whileInView={{ opacity: 1, x: 0 }}
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
                           viewport={{ once: true }}
-                          className="text-4xl font-heading font-black border-b-2 border-zinc-900 pb-4 mb-8 text-zinc-900"
+                          className="text-3xl font-heading font-black text-center text-zinc-900 tracking-tight mb-2 border-none pb-0"
                         >
                           {children}
                         </motion.h1>
                       ),
                       h2: ({ children }) => (
                         <motion.h2 
-                          initial={{ opacity: 0, x: -10 }}
-                          whileInView={{ opacity: 1, x: 0 }}
+                          initial={{ opacity: 0, y: 5 }}
+                          whileInView={{ opacity: 1, y: 0 }}
                           viewport={{ once: true }}
-                          transition={{ delay: 0.1 }}
-                          className="text-2xl font-heading font-bold mt-12 mb-6 text-zinc-900 flex items-center gap-3 before:content-[''] before:w-2 before:h-8 before:bg-zinc-900 before:rounded-full"
+                          transition={{ delay: 0.05 }}
+                          className="text-xs font-heading font-bold uppercase tracking-wider mt-6 mb-2 text-zinc-900 border-b border-zinc-200 pb-1 flex items-center justify-between"
                         >
                           {children}
                         </motion.h2>
                       ),
                       h3: ({ children }) => (
                         <motion.h3 
-                          initial={{ opacity: 0, y: 5 }}
+                          initial={{ opacity: 0, y: 3 }}
                           whileInView={{ opacity: 1, y: 0 }}
                           viewport={{ once: true }}
-                          className="text-xl font-heading font-semibold mt-8 mb-4 text-zinc-800"
+                          className="text-xs font-heading font-semibold mt-3 mb-1 text-zinc-800 flex justify-between items-center flex-wrap gap-2"
                         >
                           {children}
                         </motion.h3>
                       ),
-                      p: ({ children }) => <p className="mb-6 leading-relaxed text-zinc-600 font-sans">{children}</p>,
-                      ul: ({ children }) => <ul className="list-disc list-outside ml-6 mb-6 space-y-3 text-zinc-600 font-sans">{children}</ul>,
-                      ol: ({ children }) => <ol className="list-decimal list-outside ml-6 mb-6 space-y-3 text-zinc-600 font-sans">{children}</ol>,
-                      li: ({ children }) => <li className="pl-2 leading-relaxed">{children}</li>,
+                      p: ({ children }) => {
+                        const serializedChildren = Array.isArray(children) 
+                          ? children.map(c => (typeof c === 'object' && c !== null && 'props' in c ? (c.props?.children || '') : String(c))).join('')
+                          : String(children);
+                        const isContact = serializedChildren.includes('|') || serializedChildren.includes('@');
+                        
+                        if (isContact) {
+                          return (
+                            <p className="text-[11px] text-zinc-600 font-sans text-center tracking-tight mb-4 -mt-1 pb-2 border-b border-zinc-100 flex flex-wrap justify-center items-center gap-1.5 leading-normal">
+                              {children}
+                            </p>
+                          );
+                        }
+                        return <p className="mb-2 text-[11px] leading-relaxed text-zinc-600 font-sans">{children}</p>;
+                      },
+                      ul: ({ children }) => <ul className="list-disc list-outside ml-4 mb-3 space-y-1 text-zinc-600 font-sans text-[11px]">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal list-outside ml-4 mb-3 space-y-1 text-zinc-600 font-sans text-[11px]">{children}</ol>,
+                      li: ({ children }) => <li className="pl-0.5 leading-relaxed">{children}</li>,
                       blockquote: ({ children }) => (
                         <blockquote className="border-l-4 border-zinc-900 italic pl-6 my-8 text-zinc-700 bg-zinc-50 py-4 rounded-r-lg font-sans">
                           {children}
@@ -599,7 +802,8 @@ export default function App() {
                 </div>
               </div>
             </div>
-          </motion.div>
+          </div>
+        </motion.div>
         ) : (
           <div className="flex-1 flex items-center justify-center p-6 text-center">
             <div className="max-w-md space-y-6">
