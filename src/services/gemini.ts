@@ -18,25 +18,22 @@ export async function* generateResumeStream(
   const extractionPromises: Promise<string>[] = [];
 
   if (githubUrl) {
-    yield { type: 'status', message: 'Scanning GitHub repositories and evaluating project impact...' };
+    yield { type: 'status', message: 'Scanning GitHub repositories, analyzing code metrics, and extracting projects...' };
     extractionPromises.push(
       ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: `Use Google Search to find and extract detailed information from this GitHub profile: ${githubUrl}. 
-        CRITICAL TASK: Identify and select the 2-3 most significant projects. 
-        PRIORITIZATION: Rank projects by multidimensional impact:
+        CRITICAL TASK: Discover and spotlight the most outstanding projects, open-source contributions, key achievements, and portfolio milestones. Ranked projects by multidimensional impact:
         1. Technical Complexity: Architectural depth and engineering challenges solved.
-        2. README Quality: Clarity of documentation and articulated problem-solving.
-        3. Popularity & Activity: Star counts and recent commit velocity.
-        4. Innovation: Evidence of addressing unique needs or optimizing processes.
-        For each selected project, provide:
-        - Project name
-        - Project Purpose: A concise summary of why the project exists.
-        - Your Role: Specifically, what were the candidate's core contributions (Lead, Contributor, Creator).
+        2. README Quality & Community Reception: Star counts, forks, clarity of documentation, and active repository velocity.
+        3. Innovation: Evidence of addressing unique needs, custom optimizations, or high performance metrics.
+        
+        For each selected repository or project, extract:
+        - Project name and GitHub Link
+        - Core Accomplishments: Explicitly what was designed, built, scaled, or optimized.
         - Technologies Used (explicit tech stack)
-        - Key Achievements: Quantifiable metrics (e.g., "Reduced latency by 40%", "Acquired 500+ stars", "Integrated with X API").
-        - Impact and key features (detailed description)
-        - GitHub link (if available)
+        - Tangible Results & Key Achievements: Quantifiable accomplishments (e.g., "Reduced latency by 40%", "Acquired 500+ stars", "Wrote recursive custom compiler AST parsers", "Integrated with Google Maps API").
+        - Impact and core features.
         
         Also extract general work experience, education, and technical skills from the profile.`,
         config: { tools: [{ googleSearch: {} }] }
@@ -46,13 +43,21 @@ export async function* generateResumeStream(
   }
 
   if (linkedinUrl) {
-    yield { type: 'status', message: 'Extracting professional history and skills from LinkedIn...' };
+    yield { type: 'status', message: 'Extracting career promotions, achievements, and certifications from LinkedIn...' };
     extractionPromises.push(
       ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `Use Google Search to find and extract detailed information from this LinkedIn profile: ${linkedinUrl}. Focus on work experience, education, skills, and exact job titles/dates. Return a comprehensive summary.`,
+        contents: `Use Google Search to find and extract detailed information from this LinkedIn profile: ${linkedinUrl}. 
+        CRITICAL TASK: Focus on finding the candidate's career trajectory, fast-track promotions, work history, education, certifications, and standout achievements.
+        SEARCH HIGHLIGHTS TO DISCOVER & SPOTLIGHT:
+        1. Professional Promotions & Fast-Track Career Growth.
+        2. Awards, Honors, Certifications, or Hackathon achievements.
+        3. Quantifiable Business Impact (e.g., "Led team of 4", "Increased user base by 45%", "Saved $20k in cloud hosting costs").
+        4. Key technical deliverables, architectural redesigns, and team/project leadership milestones.
+        
+        Extract full details for exact job titles, organization names, dates, and highly-specific achievements.`,
         config: { tools: [{ googleSearch: {} }] }
-      }).then(res => `LinkedIn Profile Extraction:\n${res.text}`)
+      }).then(res => `LinkedIn Professional History, Achievements & Certifications:\n${res.text}`)
         .catch(err => `Failed to fetch LinkedIn profile: ${err.message}`)
     );
   }
@@ -93,12 +98,16 @@ Formatting and Structure Rules:
 1. OUTPUT ONLY MARKDOWN. Do not include any chat commentary, introduction, or postamble.
 2. ATS ACCESSIBILITY: Use a standard single-column layout. Avoid markdown tables or visual meters, as complex grids/tables are notoriously parsed poorly by older ATS parsers (e.g., Workday, Taleo). Use clean, bold headers and bulleted lists instead.
 3. SINGLE LINE CONTACT INFO: Directly below the Name heading, provide all links and contact details in a single horizontal, compact line, separated by '|'. Example: "First Last | Email | Phone | GitHub Link | LinkedIn Link | City, State"
-4. GOOGLE'S XYZ FORMULA: For experience: write 2 to 3 dense bullet lines per role, strictly utilizing the famous Google XYZ formula: "Accomplished [X] as measured by [Y], by doing [Z]".
+4. GOOGLE'S XYZ FORMULA & HIGHLIGHTED ACHIEVEMENTS: For experience, write 2 to 3 dense bullet lines per role. Strictly utilize the famous Google XYZ formula: "Accomplished [X] as measured by [Y], by doing [Z]".
+   - Prioritize including key professional accomplishments, work promotions, awards, scale achievements, and business cost-savings discovered from LinkedIn or GitHub.
    - Example: "Boosted API response speeds by 35% as measured by Datadog APM, by refactoring Express middleware and implementing Redis cache clusters."
-5. PROJECT SUB-BUDGET: Highlight up to 2 key technical projects. Limit each project to exactly 2 concise, impact-oriented bullets. Include technologies used inline next to or under the project title to save vertical height.
-6. COMPACT SKILLS SECTION: Group technical skills neatly into 3-4 categories (Languages, Frameworks & Libraries, Tools & Databases). Represent these categories as compact inline bold headings with items separated by commas.
-7. MAX VOLUME LIMIT: To respect the 1-page budget, list a maximum of 3 professional roles. Wording must be active, short, and highly dense.
-8. SECTION ORDER: Contact -> Summary (1 sentence max) -> Technical Skills -> Professional Experience -> Selected Projects -> Education.`,
+5. PROJECT SUB-BUDGET & COMMUNITY METRICS: Highlight up to 2 key technical projects from the candidate's GitHub profile. 
+   - Integrate stellar GitHub community reception, stars, forks, or major open-source architectural contributions explicitly within the bullet points.
+   - Limit each project to exactly 2 concise, impact-oriented bullets using the Google XYZ framework. Include technologies used inline next to or under the project title to save vertical height.
+6. AWARDS, CERTIFICATIONS & HONORS: If any notable industry certifications, professional honors, hackathon victories, or awards were found on LinkedIn or GitHub, represent them neatly in an "Awards & Certifications" sections or integrate them as elite highlights next to Education/Experience.
+7. COMPACT SKILLS SECTION: Group technical skills neatly into 3-4 categories (Languages, Frameworks & Libraries, Tools & Databases). Represent these categories as compact inline bold headings with items separated by commas.
+8. MAX VOLUME LIMIT: To respect the 1-page budget, list a maximum of 3 professional roles. Wording must be active, short, and highly dense.
+9. SECTION ORDER: Contact -> Summary (1 sentence max) -> Technical Skills -> Professional Experience -> Selected Projects -> Education.`,
       temperature: 0.7,
     }
   });
