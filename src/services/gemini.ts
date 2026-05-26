@@ -123,6 +123,8 @@ export interface ResumeAnalysis {
   score: number;
   summary: string;
   improvements: string[];
+  missingKeywords: string[];
+  matchingKeywords: string[];
 }
 
 export async function analyzeResume(resumeMarkdown: string, targetJob: string): Promise<ResumeAnalysis> {
@@ -141,7 +143,11 @@ Score Criteria (0-100):
 - 50-69: Moderate issues. Needs more quantifiable metrics, stronger action verbs, or clearer alignment with "${targetJob}".
 - Under 50: Severe issues or sparse data.
 
-Ensure the improvements are highly specific to this resume and target role. Do not give generic advice. Provide exactly 3-5 high-impact, actionable bullet points, with each bullet point highlighting a specific category (e.g., "**Action Verbs**", "**Metrics & Formatting**", or "**Keyword Placement**") and giving direct suggestions.`;
+Ensure the improvements are highly specific to this resume and target role. Do not give generic advice. Provide exactly 3-5 high-impact, actionable bullet points, with each bullet point highlighting a specific category (e.g., "**Action Verbs**", "**Metrics & Formatting**", or "**Keyword Placement**") and giving direct suggestions.
+
+Identify the crucial technical skills, concepts, methodologies, or tools that are highly recommended or required for the target role "${targetJob}" (e.g., for Frontend developer: React, TypeScript, State Management, CSS, Tailwind, etc.). 
+Determine which of these keywords are MISSING from the resume text, and which are MATCHING/PRESENT (case-insensitive substring matched).
+Provide exactly 5 to 10 highly relevant items for each list.`;
 
   const response = await ai.models.generateContent({
     model: "gemini-3.5-flash",
@@ -163,9 +169,19 @@ Ensure the improvements are highly specific to this resume and target role. Do n
             type: Type.ARRAY,
             items: { type: Type.STRING },
             description: "3-5 key actionable recommendations specific to the resume."
+          },
+          missingKeywords: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "List of 5-10 recommended skills/keywords that are NOT mentioned in the resume but are vital for " + targetJob
+          },
+          matchingKeywords: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "List of recommended skills/keywords that are successfully included in the resume."
           }
         },
-        required: ["score", "summary", "improvements"]
+        required: ["score", "summary", "improvements", "missingKeywords", "matchingKeywords"]
       }
     }
   });
@@ -186,7 +202,9 @@ Ensure the improvements are highly specific to this resume and target role. Do n
         "**Keyword Density**: Ensure all required core requirements for " + targetJob + " are explicitly named in your Skills and Work Experience sections.",
         "**Quantifiable Outcomes**: Frame existing impact points with clear, measurable outcomes (e.g., performance boosts, user growth percentages).",
         "**Action Verbs**: Substitute passive job duty descriptions with active, punchy verbs like Engineered, Spearheaded, or Designed."
-      ]
+      ],
+      missingKeywords: ["TypeScript", "CI/CD", "Unit Testing", "System Architecture", "Performance Optimization"],
+      matchingKeywords: ["React", "JavaScript", "HTML5", "Tailwind CSS", "Git"]
     };
   }
 }
