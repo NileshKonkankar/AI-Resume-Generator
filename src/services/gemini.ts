@@ -12,7 +12,8 @@ export async function* generateResumeStream(
   linkedinUrl: string, 
   targetJob: string, 
   additionalContext: string,
-  currentResume?: ResumeFile | null
+  currentResume?: ResumeFile | null,
+  jobDescription?: string
 ) {
   // Parallel processing of profile data for optimization
   const extractionPromises: Promise<string>[] = [];
@@ -69,12 +70,13 @@ export async function* generateResumeStream(
   yield { type: 'status', message: 'Synthesizing professional narrative and formatting for ATS...' };
 
   const prompt = `Target Role: ${targetJob}
+${jobDescription ? `Target Job Description (JD):\n"""\n${jobDescription}\n"""\n` : ''}
 ${additionalContext ? `Context: ${additionalContext}` : ''}
 ${currentResume ? `[Resume attached via inline data]` : ''}
 
 ${searchContext ? `--- Extracted Profile Data ---\n${searchContext}\n---` : ''}
 
-Task: Generate a highly polished, single-page, compact ATS resume tailored specifically for the target role: "${targetJob}". Focus on presenting information with elite structural efficiency and high-density Google XYZ metrics. Combine the attached resume, context, and extracted profile data into the absolute best possible single-page representation. Limit content to prevent any page spill-over.`;
+Task: Generate a highly polished, single-page, compact ATS resume tailored specifically for the target role: "${targetJob}"${jobDescription ? ` and explicitly aligned/balanced to match the key technical expectations, mandatory technologies, skills, and databases specified in the Job Description (JD). Extract every relevant technical skill from the JD and integrate them directly into the "Technical Skills" section and weave them naturally into experience bullet points` : ''}. Focus on presenting information with elite structural efficiency and high-density Google XYZ metrics. Combine the attached resume, context, and extracted profile data into the absolute best possible single-page representation. Limit content to prevent any page spill-over.`;
 
   const contents: any[] = [];
   if (currentResume) {
@@ -108,6 +110,51 @@ Formatting and Structure Rules:
 7. COMPACT SKILLS SECTION: Group technical skills neatly into 3-4 categories (Languages, Frameworks & Libraries, Tools & Databases). Represent these categories as compact inline bold headings with items separated by commas.
 8. MAX VOLUME LIMIT: To respect the 1-page budget, list a maximum of 3 professional roles. Wording must be active, short, and highly dense.
 9. SECTION ORDER: Contact -> Summary (1 sentence max) -> Technical Skills -> Professional Experience -> Selected Projects -> Education.`,
+      temperature: 0.7,
+    }
+  });
+
+  for await (const chunk of responseStream) {
+    if (chunk.text) {
+      yield { type: 'text', text: chunk.text };
+    }
+  }
+}
+
+export async function* generateCoverLetterStream(
+  githubUrl: string,
+  linkedinUrl: string,
+  targetJob: string,
+  additionalContext: string,
+  currentResume?: ResumeFile | null,
+  jobDescription?: string,
+  resumeMarkdown?: string
+) {
+  yield { type: 'status', message: 'Analyzing job description and tailored resume...' };
+
+  const prompt = `Target Role: ${targetJob}
+${jobDescription ? `Target Job Description (JD):\n"""\n${jobDescription}\n"""\n` : ''}
+${additionalContext ? `Additional Context: ${additionalContext}` : ''}
+${resumeMarkdown ? `Compiled Resume Details:\n"""\n${resumeMarkdown}\n"""\n` : ''}
+
+Task: Write an outstanding, professionally structured Cover Letter tailored for the target role: "${targetJob}".
+The Cover Letter MUST:
+1. Align with the provided Job Description, showing how the candidate's achievements (from their resume and professional profile) make them the perfect match.
+2. Structure itself with standard premium layout sections:
+   - Contact Info Slot / Headline
+   - Professional Greeting
+   - Compelling Opening hooking the recruiter's attention
+   - Main Body paragraphs explicitly mapping GitHub/LinkedIn achievements and skills to the JD requirements
+   - Call to Action (interview request) and Warm Professional Sign-off
+3. Keep the entire cover letter highly punchy and concise (around 250 - 350 words, maximum 3-4 paragraphs) to guarantee it fits on a single printed page.
+4. If company, manager, or recruiter details are not explicitly found in context, use sophisticated default values like 'The Hiring Team' or '[Target Company]'. DO NOT output bracketed raw placeholders like '[Your Name]' or '[Company Name]'. Instead, pre-fill them intelligently using candidate data details (e.g. from resume) or high-quality descriptive labels.
+5. Direct output as clean Markdown only. Extra headers, commentary, introductions, or postambles are strictly forbidden.`;
+
+  const responseStream = await ai.models.generateContentStream({
+    model: "gemini-3.1-pro-preview",
+    contents: prompt,
+    config: {
+      systemInstruction: "You are an expert executive coach and master cover letter writer. You specialize in crafting concise, professional, achievement-driven cover letters that connect and resonate with hiring managers. You know exactly how to demonstrate a candidate's high impact without fluff.",
       temperature: 0.7,
     }
   });
@@ -206,5 +253,52 @@ Provide exactly 5 to 10 highly relevant items for each list.`;
       missingKeywords: ["TypeScript", "CI/CD", "Unit Testing", "System Architecture", "Performance Optimization"],
       matchingKeywords: ["React", "JavaScript", "HTML5", "Tailwind CSS", "Git"]
     };
+  }
+}
+
+export async function* fineTuneResumeStream(
+  currentResumeMarkdown: string,
+  targetJob: string,
+  jobDescription?: string,
+  improvements?: string[],
+  missingKeywords?: string[]
+) {
+  yield { type: 'status', message: 'Applying expert optimizations and embedding missing technical skills...' };
+
+  const prompt = `Target Role: ${targetJob}
+${jobDescription ? `Target Job Description (JD):\n"""\n${jobDescription}\n"""\n` : ''}
+
+Current Resume Markdown to optimize:
+"""
+${currentResumeMarkdown}
+"""
+
+Critical recommendations to resolve and apply directly to the resume contents:
+${improvements && improvements.length > 0 ? improvements.map(imp => `- ${imp}`).join('\n') : '- Make experience descriptions more action-oriented with quantitative Google XYZ formula metrics.\n- Replace passive verbs with elite active equivalents.'}
+
+Key skills/prerequisites from the JD to weave in:
+${missingKeywords && missingKeywords.length > 0 ? missingKeywords.map(kw => `- ${kw}`).join('\n') : '- Integrate all relevant job title keywords and modern systems engineering concepts.'}
+
+Task: Write a fully fine-tuned, auto-optimized, highly aligned version of the resume markdown. Weave all identified technical skills and keywords directly into standard sections (e.g., "Technical Skills" headers and experience bullet points). Directly apply every suggested recommendation into the text itself so the candidate doesn't have to make any manual changes.
+
+Output Constraints:
+1. OUTPUT ONLY THE FULL REVISED MARKDOWN content of the resume. Do not add introductory comments, explanation bullet points, chat preambles, or formatting advice.
+2. Maintain standard ATS single-column formatting. No markdown tables.
+3. Keep the content ultra-dense and compact to guarantee it fits exactly on a single page. Use active, punchy, quantitative Google XYZ formula metrics ("Accomplished [X] as measured by [Y], by doing [Z]").
+4. Maintain contact details horizontally on a single line.`;
+
+  const responseStream = await ai.models.generateContentStream({
+    model: "gemini-3.1-pro-preview",
+    contents: prompt,
+    config: {
+      systemInstruction: "You are an elite master executive coach and executive resume rewriter. You take an existing candidate resume, apply custom feedback and keyword checklists, and write a flawless, highly polished, fully aligned, single-page technical resume that achieves top scores on automatic applicant tracking scanners (ATS).",
+      temperature: 0.6,
+    }
+  });
+
+  for await (const chunk of responseStream) {
+    if (chunk.text) {
+      yield { type: 'text', text: chunk.text };
+    }
   }
 }

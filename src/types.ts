@@ -12,4 +12,7 @@ export interface ResumeHistoryItem {
   resumeFileName?: string;
   resumeFileData?: string;
   resumeFileMimeType?: string;
+  jobDescription?: string;
+  coverLetterMarkdown?: string;
+  isFineTuned?: boolean;
 }
