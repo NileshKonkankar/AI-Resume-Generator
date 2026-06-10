@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { Github, Linkedin, Briefcase, FileText, Loader2, Copy, CheckCircle2, Sparkles, Upload, X, AlertCircle, Download, History, Trash2, Calendar, Sun, Moon } from 'lucide-react';
+import { Github, Linkedin, Briefcase, FileText, Loader2, Copy, CheckCircle2, Sparkles, Upload, X, AlertCircle, Download, History, Trash2, Calendar, Sun, Moon, Tag, Plus, Search, Check, Edit, Eye } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -37,6 +37,23 @@ const highlightKeywords = (text: string, keywords: string[]): string => {
   return highlighted;
 };
 
+const checkKeywordPresence = (text: string, kw: string): boolean => {
+  if (!text || !kw) return false;
+  const cleanKeyword = kw.trim().toLowerCase();
+  const cleanText = text.toLowerCase();
+  
+  // For special characters like C++, C#, .NET, react.js, etc., standard \b doesn't work well
+  const containsSpecial = /[^a-zA-Z0-9\s]/.test(cleanKeyword);
+  if (containsSpecial) {
+    return cleanText.includes(cleanKeyword);
+  }
+  
+  // Word boundary match
+  const escaped = cleanKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+  return regex.test(cleanText);
+};
+
 export default function App() {
   const [githubUrl, setGithubUrl] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
@@ -63,6 +80,33 @@ export default function App() {
   const [isHighlightingKeywords, setIsHighlightingKeywords] = useState(false);
   const [isFineTuned, setIsFineTuned] = useState(false);
   const [isFineTuning, setIsFineTuning] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [customKeywords, setCustomKeywords] = useState<string[]>([]);
+  const [keywordSearch, setKeywordSearch] = useState('');
+  const [newKeywordInput, setNewKeywordInput] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+
+  const liveKeywords = useMemo(() => {
+    if (!atsScore) return [];
+    
+    const originalMatches = atsScore.matchingKeywords || [];
+    const originalMissing = atsScore.missingKeywords || [];
+    
+    // Combine them, deduplicate, and include custom keywords
+    const combined = Array.from(new Set([
+      ...originalMatches,
+      ...originalMissing,
+      ...customKeywords
+    ])).filter(Boolean);
+    
+    return combined.map(kw => {
+      const isPresent = checkKeywordPresence(resumeMarkdown, kw);
+      return {
+        name: kw,
+        isPresent
+      };
+    });
+  }, [atsScore, resumeMarkdown, customKeywords]);
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
@@ -142,6 +186,8 @@ export default function App() {
     setAnalysisError(null);
     setError(null);
     setRightTab(item.coverLetterMarkdown ? 'cover-letter' : 'resume');
+    setIsEditing(false);
+    setCustomKeywords([]);
     
     if (item.resumeFileName && item.resumeFileData) {
       setResumeFile({
@@ -242,6 +288,8 @@ export default function App() {
     setRightTab('resume');
     setAtsScore(null);
     setAnalysisError(null);
+    setIsEditing(false);
+    setCustomKeywords([]);
     
     // Yield to the browser's paint loop to ensure the disabled state, loading spinner, and skeleton loaders render immediately
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -601,6 +649,8 @@ export default function App() {
                       setRightTab('resume');
                       setAtsScore(null);
                       setResumeFile(null);
+                      setIsEditing(false);
+                      setCustomKeywords([]);
                     }}
                   >
                     Reset Form
@@ -1040,6 +1090,47 @@ export default function App() {
                 )}
               </div>
               <div className="flex items-center gap-2">
+                {rightTab === 'resume' && (
+                  <Button
+                    variant={isEditing ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setIsEditing(!isEditing)}
+                    className={`text-xs font-medium gap-1.5 transition-all hover:scale-[1.01] active:scale-[0.99] border-zinc-200 dark:border-zinc-800 ${
+                      isEditing 
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-sm' 
+                        : 'text-zinc-650 dark:text-zinc-300 hover:text-blue-650 dark:hover:text-blue-400'
+                    }`}
+                  >
+                    {isEditing ? <Eye className="w-3.5 h-3.5" /> : <Edit className="w-3.5 h-3.5" />}
+                    {isEditing ? 'Preview Resume' : 'Edit Resume'}
+                  </Button>
+                )}
+                
+                {rightTab === 'resume' && atsScore && (
+                  <Button
+                    variant={isSidebarOpen ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                    className={`text-xs font-medium gap-1.5 transition-all hover:scale-[1.01] active:scale-[0.99] border-zinc-200 dark:border-zinc-800 ${
+                      isSidebarOpen 
+                        ? 'bg-zinc-900 border-zinc-900 text-white dark:bg-zinc-100 dark:border-zinc-100 dark:text-zinc-900 shadow-sm' 
+                        : 'text-zinc-650 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100'
+                    }`}
+                  >
+                    <Tag className="w-3.5 h-3.5" />
+                    Tracker Sidebar
+                    {liveKeywords.length > 0 && (
+                      <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                        isSidebarOpen 
+                          ? 'bg-zinc-700 text-zinc-100 dark:bg-zinc-200 dark:text-zinc-800' 
+                          : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-405 border border-zinc-200 dark:border-zinc-700/60'
+                      }`}>
+                        {liveKeywords.filter(k => k.isPresent).length}/{liveKeywords.length}
+                      </span>
+                    )}
+                  </Button>
+                )}
+
                 {atsScore && !isAnalyzing && atsScore.matchingKeywords && atsScore.matchingKeywords.length > 0 && (
                   <Button 
                     variant={isHighlightingKeywords ? "default" : "outline"} 
@@ -1048,25 +1139,27 @@ export default function App() {
                     className={`text-xs font-medium gap-1.5 transition-all ${
                       isHighlightingKeywords 
                         ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm' 
-                        : 'text-zinc-600 dark:text-zinc-300 hover:text-emerald-600 dark:hover:text-emerald-400 border-zinc-200 dark:border-zinc-800'
+                        : 'text-zinc-600 dark:text-zinc-300 hover:text-emerald-600 dark:hover:text-emerald-400 border-zinc-200 dark:border-zinc-805'
                     }`}
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     {isHighlightingKeywords ? 'Highlight On' : 'Highlight Matches'}
                   </Button>
                 )}
-                <Button variant="outline" size="sm" onClick={handleDownload} className="text-xs font-semibold">
+                <Button variant="outline" size="sm" onClick={handleDownload} className="text-xs font-semibold border-zinc-200 dark:border-zinc-800">
                   <Download className="w-4 h-4 mr-2" />
                   Download .doc
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleCopy} className="text-xs font-semibold">
+                <Button variant="outline" size="sm" onClick={handleCopy} className="text-xs font-semibold border-zinc-200 dark:border-zinc-800">
                   {copied ? <CheckCircle2 className="w-4 h-4 mr-2 text-green-600 dark:text-green-400" /> : <Copy className="w-4 h-4 mr-2" />}
                   {copied ? 'Copied!' : 'Copy Markdown'}
                 </Button>
               </div>
             </div>
-            <div className="flex-1 p-6 md:p-12 overflow-y-auto">
-              <div className="max-w-3xl mx-auto space-y-8">
+            <div className="flex-1 flex flex-row overflow-hidden bg-zinc-50 dark:bg-zinc-950">
+              {/* Left Column - Scrollable Document View */}
+              <div className="flex-1 p-6 md:p-12 overflow-y-auto h-full">
+                <div className="max-w-3xl mx-auto space-y-8">
                 {/* Scorecard Skeleton Loader */}
                 {isAnalyzing && (
                   <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm p-6 md:p-8 space-y-6 animate-pulse" id="ats-scorecard-skeleton">
@@ -1359,7 +1452,7 @@ export default function App() {
 
                 {/* Analysis Error State */}
                 {analysisError && rightTab === 'resume' && (
-                  <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-600 flex items-center gap-2">
+                  <div className="bg-red-50 border border-red-250 rounded-2xl p-4 text-sm text-red-600 flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
                     <span>{analysisError}</span>
                     <Button variant="link" size="sm" onClick={handleReAnalyze} className="text-red-700 p-0 h-auto font-semibold ml-auto">
@@ -1367,122 +1460,366 @@ export default function App() {
                     </Button>
                   </div>
                 )}
-
-                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-md rounded-2xl p-6 md:p-10 transition-colors duration-300 hover:shadow-lg">
-                <div className="prose prose-zinc dark:prose-invert max-w-none prose-a:text-blue-600 dark:prose-a:text-blue-400">
-                  <Markdown 
-                    remarkPlugins={[remarkGfm, remarkBreaks]}
-                    rehypePlugins={[rehypeRaw, rehypeSanitize]}
-                    components={{
-                      h1: ({ children }) => (
-                        <motion.h1 
-                          initial={{ opacity: 0, y: -5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          viewport={{ once: true }}
-                          className="text-3xl font-heading font-black text-center text-zinc-900 dark:text-zinc-50 tracking-tight mb-2 border-none pb-0"
+                        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-md rounded-2xl p-6 md:p-10 transition-colors duration-300 hover:shadow-lg flex flex-col">
+                  {isEditing && rightTab === 'resume' ? (
+                    <div className="flex flex-col h-full space-y-4">
+                      <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 select-none pb-2 border-b border-zinc-100 dark:border-zinc-800">
+                        <span className="flex items-center gap-1.5 font-semibold">
+                          <Edit className="w-3.5 h-3.5 text-zinc-400" />
+                          Direct Resume Markdown Editor (Edits reflect in real-time)
+                        </span>
+                        <span className="font-mono text-[10px] bg-zinc-100 dark:bg-zinc-805 px-2 py-0.5 rounded-full">
+                          {resumeMarkdown.length} chars
+                        </span>
+                      </div>
+                      <textarea
+                        value={resumeMarkdown}
+                        onChange={(e) => setResumeMarkdown(e.target.value)}
+                        className="w-full min-h-[500px] flex-1 p-5 font-mono text-xs md:text-sm leading-relaxed bg-zinc-50 dark:bg-zinc-950 text-zinc-800 dark:text-zinc-100 rounded-xl border border-zinc-200 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-y"
+                        placeholder="Type or paste your markdown resume here to edit..."
+                      />
+                      <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between bg-zinc-50/50 dark:bg-zinc-805/30 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 text-xs">
+                        <span className="text-zinc-500 dark:text-zinc-400 leading-normal max-w-md">
+                          Type naturally. The Keywords Tracker sidebar on the right is actively scanning this text to check which terms are present in real-time.
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsEditing(false)}
+                          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 bg-white dark:bg-zinc-900 h-8 text-xs font-bold border-zinc-200 dark:border-zinc-800 self-end sm:self-auto shadow-sm"
                         >
-                          {children}
-                        </motion.h1>
-                      ),
-                      h2: ({ children }) => (
-                        <motion.h2 
-                          initial={{ opacity: 0, y: 5 }}
-                          whileInView={{ opacity: 1, y: 0 }}
-                          viewport={{ once: true }}
-                          transition={{ delay: 0.05 }}
-                          className="text-xs font-heading font-bold uppercase tracking-wider mt-6 mb-2 text-zinc-900 dark:text-zinc-50 border-b border-zinc-200 dark:border-zinc-800 pb-1 flex items-center justify-between"
-                        >
-                          {children}
-                        </motion.h2>
-                      ),
-                      h3: ({ children }) => (
-                        <motion.h3 
-                          initial={{ opacity: 0, y: 3 }}
-                          whileInView={{ opacity: 1, y: 0 }}
-                          viewport={{ once: true }}
-                          className="text-xs font-heading font-semibold mt-3 mb-1 text-zinc-800 dark:text-zinc-200 flex justify-between items-center flex-wrap gap-2"
-                        >
-                          {children}
-                        </motion.h3>
-                      ),
-                      p: ({ children }) => {
-                        const serializedChildren = Array.isArray(children) 
-                          ? children.map(c => (typeof c === 'object' && c !== null && 'props' in c ? (c.props?.children || '') : String(c))).join('')
-                          : String(children);
-                        const isContact = serializedChildren.includes('|') || serializedChildren.includes('@');
-                        
-                        if (isContact) {
-                          return (
-                            <p className="text-[11px] text-zinc-650 dark:text-zinc-400 font-sans text-center tracking-tight mb-4 -mt-1 pb-2 border-b border-zinc-100 dark:border-zinc-800 flex flex-wrap justify-center items-center gap-1.5 leading-normal">
+                          <Eye className="w-3.5 h-3.5 mr-1.5" />
+                          View Preview
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="prose prose-zinc dark:prose-invert max-w-none prose-a:text-blue-600 dark:prose-a:text-blue-400">
+                      <Markdown 
+                        remarkPlugins={[remarkGfm, remarkBreaks]}
+                        rehypePlugins={[rehypeRaw, rehypeSanitize]}
+                        components={{
+                          h1: ({ children }) => (
+                            <motion.h1 
+                              initial={{ opacity: 0, y: -5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              viewport={{ once: true }}
+                              className="text-3xl font-heading font-black text-center text-zinc-900 dark:text-zinc-50 tracking-tight mb-2 border-none pb-0"
+                            >
                               {children}
-                            </p>
-                          );
-                        }
-                        return <p className="mb-2 text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-350 font-sans">{children}</p>;
-                      },
-                      ul: ({ children }) => <ul className="list-disc list-outside ml-4 mb-3 space-y-1 text-zinc-600 dark:text-zinc-350 font-sans text-[11px]">{children}</ul>,
-                      ol: ({ children }) => <ol className="list-decimal list-outside ml-4 mb-3 space-y-1 text-zinc-600 dark:text-zinc-350 font-sans text-[11px]">{children}</ol>,
-                      li: ({ children }) => <li className="pl-0.5 leading-relaxed text-zinc-650 dark:text-zinc-350">{children}</li>,
-                      blockquote: ({ children }) => (
-                        <blockquote className="border-l-4 border-zinc-900 dark:border-zinc-600 italic pl-6 my-8 text-zinc-700 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-805/40 py-4 rounded-r-lg font-sans">
-                          {children}
-                        </blockquote>
-                      ),
-                      table: ({ children }) => (
-                        <div className="overflow-x-auto my-8 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm">
-                          <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
-                            {children}
-                          </table>
-                        </div>
-                      ),
-                      thead: ({ children }) => <thead className="bg-zinc-50 dark:bg-zinc-800 font-heading">{children}</thead>,
-                      th: ({ children }) => <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">{children}</th>,
-                      td: ({ children }) => <td className="px-6 py-4 text-sm text-zinc-605 dark:text-zinc-350 border-t border-zinc-100 dark:border-zinc-800/80 font-sans">{children}</td>,
-                      a: ({ children, href }) => (
-                        <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-405 hover:text-blue-700 dark:hover:text-blue-300 underline underline-offset-4 decoration-2 decoration-blue-100 dark:decoration-blue-900/40 hover:decoration-blue-300 transition-all inline-flex items-center gap-1 font-medium">
-                          {children}
-                        </a>
-                      ),
-                      code({ className, children, ref, node, ...rest }) {
-                        const match = /language-(\w+)/.exec(className || '');
-                        const isInline = !match;
-                        return !isInline ? (
-                          <div className="relative group my-6">
-                            <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 bg-zinc-100/50 px-2 py-1 rounded backdrop-blur-sm">
-                                {match[1]}
-                              </span>
+                            </motion.h1>
+                          ),
+                          h2: ({ children }) => (
+                            <motion.h2 
+                              initial={{ opacity: 0, y: 5 }}
+                              whileInView={{ opacity: 1, y: 0 }}
+                              viewport={{ once: true }}
+                              transition={{ delay: 0.05 }}
+                              className="text-xs font-heading font-bold uppercase tracking-wider mt-6 mb-2 text-zinc-900 dark:text-zinc-50 border-b border-zinc-200 dark:border-zinc-800 pb-1 flex items-center justify-between"
+                            >
+                              {children}
+                            </motion.h2>
+                          ),
+                          h3: ({ children }) => (
+                            <motion.h3 
+                              initial={{ opacity: 0, y: 3 }}
+                              whileInView={{ opacity: 1, y: 0 }}
+                              viewport={{ once: true }}
+                              className="text-xs font-heading font-semibold mt-3 mb-1 text-zinc-800 dark:text-zinc-200 flex justify-between items-center flex-wrap gap-2"
+                            >
+                              {children}
+                            </motion.h3>
+                          ),
+                          p: ({ children }) => {
+                            const serializedChildren = Array.isArray(children) 
+                              ? children.map(c => (typeof c === 'object' && c !== null && 'props' in c ? (c.props?.children || '') : String(c))).join('')
+                              : String(children);
+                            const isContact = serializedChildren.includes('|') || serializedChildren.includes('@');
+                            
+                            if (isContact) {
+                              return (
+                                <p className="text-[11px] text-zinc-650 dark:text-zinc-400 font-sans text-center tracking-tight mb-4 -mt-1 pb-2 border-b border-zinc-100 dark:border-zinc-800 flex flex-wrap justify-center items-center gap-1.5 leading-normal">
+                                  {children}
+                                </p>
+                              );
+                            }
+                            return <p className="mb-2 text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-350 font-sans">{children}</p>;
+                          },
+                          ul: ({ children }) => <ul className="list-disc list-outside ml-4 mb-3 space-y-1 text-zinc-600 dark:text-zinc-350 font-sans text-[11px]">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal list-outside ml-4 mb-3 space-y-1 text-zinc-600 dark:text-zinc-350 font-sans text-[11px]">{children}</ol>,
+                          li: ({ children }) => <li className="pl-0.5 leading-relaxed text-zinc-650 dark:text-zinc-350">{children}</li>,
+                          blockquote: ({ children }) => (
+                            <blockquote className="border-l-4 border-zinc-900 dark:border-zinc-600 italic pl-6 my-8 text-zinc-700 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-805/40 py-4 rounded-r-lg font-sans">
+                              {children}
+                            </blockquote>
+                          ),
+                          table: ({ children }) => (
+                            <div className="overflow-x-auto my-8 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm">
+                              <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
+                                {children}
+                              </table>
                             </div>
-                            <SyntaxHighlighter
-                              {...(rest as any)}
-                              PreTag="div"
-                              children={String(children).replace(/\n$/, '')}
-                              language={match[1]}
-                              style={vscDarkPlus}
-                              className="!rounded-xl !p-6 !m-0 !bg-zinc-900 border border-zinc-800 shadow-lg text-sm"
-                              customStyle={{
-                                background: '#18181b', // zinc-900
-                                margin: 0,
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <code {...rest} ref={ref} className={`${className || ''} bg-zinc-100 dark:bg-zinc-805 text-zinc-900 dark:text-zinc-100 px-1.5 py-0.5 rounded font-mono text-[0.9em] border border-zinc-200 dark:border-zinc-800`}>
-                            {children}
-                          </code>
-                        );
-                      }
-                    }}
-                  >
-                    {rightTab === 'resume' 
-                      ? (isHighlightingKeywords && atsScore?.matchingKeywords 
-                          ? highlightKeywords(resumeMarkdown, atsScore.matchingKeywords) 
-                          : resumeMarkdown) 
-                      : coverLetterMarkdown}
-                  </Markdown>
+                          ),
+                          thead: ({ children }) => <thead className="bg-zinc-50 dark:bg-zinc-800 font-heading">{children}</thead>,
+                          th: ({ children }) => <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 dark:text-zinc-405 uppercase tracking-widest">{children}</th>,
+                          td: ({ children }) => <td className="px-6 py-4 text-sm text-zinc-605 dark:text-zinc-350 border-t border-zinc-100 dark:border-zinc-800/80 font-sans">{children}</td>,
+                          a: ({ children, href }) => (
+                            <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-405 hover:text-blue-700 dark:hover:text-blue-300 underline underline-offset-4 decoration-2 decoration-blue-100 dark:decoration-blue-900/40 hover:decoration-blue-300 transition-all inline-flex items-center gap-1 font-medium">
+                              {children}
+                            </a>
+                          ),
+                          code({ className, children, ref, node, ...rest }) {
+                            const match = /language-(\w+)/.exec(className || '');
+                            const isInline = !match;
+                            return !isInline ? (
+                              <div className="relative group my-6">
+                                <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 bg-zinc-100/50 px-2 py-1 rounded backdrop-blur-sm">
+                                    {match[1]}
+                                  </span>
+                                </div>
+                                <SyntaxHighlighter
+                                  {...(rest as any)}
+                                  PreTag="div"
+                                  children={String(children).replace(/\n$/, '')}
+                                  language={match[1]}
+                                  style={vscDarkPlus}
+                                  className="!rounded-xl !p-6 !m-0 !bg-zinc-900 border border-zinc-800 shadow-lg text-sm"
+                                  customStyle={{
+                                    background: '#18181b', // zinc-900
+                                    margin: 0,
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <code {...rest} ref={ref} className={`${className || ''} bg-zinc-100 dark:bg-zinc-805 text-zinc-900 dark:text-zinc-100 px-1.5 py-0.5 rounded font-mono text-[0.9em] border border-zinc-200 dark:border-zinc-800`}>
+                                {children}
+                              </code>
+                            );
+                          }
+                        }}
+                      >
+                        {rightTab === 'resume' 
+                          ? (isHighlightingKeywords && atsScore?.matchingKeywords 
+                              ? highlightKeywords(resumeMarkdown, atsScore.matchingKeywords) 
+                              : resumeMarkdown) 
+                          : coverLetterMarkdown}
+                      </Markdown>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
+            </div> {/* Close Left Column scroll-area wrapper */}
+
+            {/* Keyword Tracking Sidebar */}
+            {rightTab === 'resume' && atsScore && isSidebarOpen && (
+              <div className="w-80 border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col h-full shrink-0 animate-fade-in transition-all duration-300">
+                {/* Sidebar Header */}
+                <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/40 select-none">
+                  <div className="flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-blue-500 animate-pulse" />
+                    <h3 className="text-sm font-bold text-zinc-950 dark:text-zinc-50 font-heading">ATS Keywords Tally</h3>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-7 w-7 p-0 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-300" 
+                    onClick={() => setIsSidebarOpen(false)}
+                    title="Hide Sidebar"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {/* Sidebar Stats Panel */}
+                <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 space-y-3 bg-zinc-50/20 dark:bg-zinc-900/10">
+                  {(() => {
+                    const totalCount = liveKeywords.length;
+                    const matchedCount = liveKeywords.filter(k => k.isPresent).length;
+                    const pct = totalCount > 0 ? Math.round((matchedCount / totalCount) * 100) : 0;
+                    return (
+                      <>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-zinc-550 dark:text-zinc-400 font-medium font-sans">Required Match Ratio</span>
+                          <span className={`font-black font-heading px-2 py-0.5 rounded-full ${
+                            pct >= 80 ? 'bg-emerald-50 dark:bg-emerald-950/25 text-emerald-600' :
+                            pct >= 50 ? 'bg-amber-50 dark:bg-amber-950/25 text-amber-600' :
+                            'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'
+                          }`}>
+                            {matchedCount} / {totalCount} ({pct}%)
+                          </span>
+                        </div>
+                        
+                        {/* Progress Line */}
+                        <div className="w-full h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                          <motion.div 
+                            className={`h-full ${
+                              pct >= 80 ? 'bg-emerald-500' :
+                              pct >= 50 ? 'bg-amber-500' :
+                              'bg-zinc-400 dark:bg-zinc-600'
+                            }`}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${pct}%` }}
+                            transition={{ duration: 0.5, ease: "easeOut" }}
+                          />
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {/* Keyword Addition & Search controls */}
+                <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 space-y-3 shrink-0">
+                  {/* Filter search */}
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-zinc-400" />
+                    <input
+                      type="text"
+                      placeholder="Search active keywords..."
+                      value={keywordSearch}
+                      onChange={(e) => setKeywordSearch(e.target.value)}
+                      className="w-full pl-8 pr-7 py-2 text-xs bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder-zinc-400 text-zinc-800 dark:text-zinc-100"
+                    />
+                    {keywordSearch && (
+                      <button 
+                        onClick={() => setKeywordSearch('')}
+                        className="absolute right-2.5 top-2.5 text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-300"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Add custom keyword */}
+                  <form 
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (newKeywordInput.trim()) {
+                        const kw = newKeywordInput.trim();
+                        if (!customKeywords.some(existing => existing.toLowerCase() === kw.toLowerCase())) {
+                          setCustomKeywords(prev => [...prev, kw]);
+                        }
+                        setNewKeywordInput('');
+                      }
+                    }}
+                    className="flex gap-1.5"
+                  >
+                    <input
+                      type="text"
+                      placeholder="Track custom keyword..."
+                      value={newKeywordInput}
+                      onChange={(e) => setNewKeywordInput(e.target.value)}
+                      className="flex-1 px-2.5 py-1.5 text-xs bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder-zinc-400 text-zinc-800 dark:text-zinc-200"
+                    />
+                    <Button type="submit" size="sm" className="h-7 px-2.5 bg-blue-600 hover:bg-blue-700 hover:scale-[1.01] text-white shrink-0 shadow-sm font-bold text-xs gap-1">
+                      <Plus className="w-3.5 h-3.5" />
+                      Add
+                    </Button>
+                  </form>
+                </div>
+
+                {/* Keywords Scrollable List */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {(() => {
+                    const filtered = liveKeywords.filter(kw => 
+                      kw.name.toLowerCase().includes(keywordSearch.toLowerCase())
+                    );
+                    
+                    const presentList = filtered.filter(kw => kw.isPresent);
+                    const missingList = filtered.filter(kw => !kw.isPresent);
+                    
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="text-center py-12 text-xs text-zinc-400 dark:text-zinc-500 italic font-sans animate-fade-in">
+                          No matching keywords.
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <>
+                        {/* Missing Section */}
+                        {missingList.length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1.5 font-sans select-none">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                              Missing ({missingList.length})
+                            </h4>
+                            <div className="grid grid-cols-1 gap-1.5">
+                              {missingList.map((kw, i) => {
+                                const isCustom = customKeywords.includes(kw.name);
+                                return (
+                                  <div 
+                                    key={`missing-${i}`} 
+                                    className="group/item flex items-center justify-between px-2.5 py-2 rounded-lg border border-rose-100/50 dark:border-rose-950/20 bg-rose-50/10 dark:bg-rose-955/5 text-xs text-rose-900 dark:text-rose-250 font-medium transition-all"
+                                  >
+                                    <span className="truncate pr-1 font-sans">{kw.name}</span>
+                                    <div className="flex items-center gap-1.5 shrink-0 select-none">
+                                      {isCustom ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => setCustomKeywords(prev => prev.filter(k => k !== kw.name))}
+                                          className="text-rose-450 hover:text-rose-600 dark:hover:text-rose-350 p-0.5 transition-colors"
+                                          title="Delete custom keyword"
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                        </button>
+                                      ) : (
+                                        <span className="text-[8px] font-extrabold font-sans text-rose-500 bg-rose-50/50 dark:bg-rose-950/20 px-1.5 py-0.2 rounded border border-rose-100/40">JD</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Present Section */}
+                        {presentList.length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 font-sans select-none">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              Present ({presentList.length})
+                            </h4>
+                            <div className="grid grid-cols-1 gap-1.5">
+                              {presentList.map((kw, i) => {
+                                const isCustom = customKeywords.includes(kw.name);
+                                return (
+                                  <div 
+                                    key={`present-${i}`} 
+                                    className="group/item flex items-center justify-between px-2.5 py-2 rounded-lg border border-emerald-100/30 dark:border-emerald-950/20 bg-emerald-50/20 dark:bg-emerald-955/5 text-xs text-emerald-900 dark:text-emerald-150 font-medium transition-all"
+                                  >
+                                    <span className="truncate pr-1 flex items-center gap-2 font-sans">
+                                      <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 font-bold" />
+                                      {kw.name}
+                                    </span>
+                                    <div className="flex items-center gap-1.5 shrink-0 select-none">
+                                      {isCustom ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => setCustomKeywords(prev => prev.filter(k => k !== kw.name))}
+                                          className="text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-350 p-0.5 transition-colors"
+                                          title="Delete custom keyword"
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                        </button>
+                                      ) : (
+                                        <span className="text-[8px] font-extrabold font-sans text-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 px-1.5 py-0.2 rounded border border-emerald-100/40">JD</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
           </div>
         </motion.div>
         ) : (
