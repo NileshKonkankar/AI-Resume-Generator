@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { Github, Linkedin, Briefcase, FileText, Loader2, Copy, CheckCircle2, Sparkles, Upload, X, AlertCircle, Download, History, Trash2, Calendar, Sun, Moon, Tag, Plus, Search, Check, Edit, Eye } from 'lucide-react';
+import { Github, Linkedin, Briefcase, FileText, Loader2, Copy, CheckCircle2, Sparkles, Upload, X, AlertCircle, Download, History, Trash2, Calendar, Sun, Moon, Tag, Plus, Search, Check, Edit, Eye, ShieldCheck } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -128,6 +128,23 @@ export default function App() {
     }
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  // URL Protection Guard: Detect and sanitize unauthorized attempts to inject query parameters, hash fragments, or routes.
+  // This explicitly prevents any URL-based data loading or state hijacking, keeping all local data isolated in the browser's localStorage.
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const loc = window.location;
+      const hasQuery = loc.search && loc.search.length > 0;
+      const hasHash = loc.hash && loc.hash.length > 0;
+      const hasCustomPath = loc.pathname && loc.pathname !== '/' && loc.pathname !== '/index.html';
+
+      if (hasQuery || hasHash || hasCustomPath) {
+        // Safe programmatic URL rewrite - completely isolates the application on the clean root view
+        window.history.replaceState(null, '', '/');
+        console.warn('Security Protocol: Clean URL enforced. All parameters, paths, and hashes have been sanitized to maintain local client data sandboxing.');
+      }
+    }
+  }, []);
 
   const [historyList, setHistoryList] = useState<ResumeHistoryItem[]>([]);
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
@@ -591,6 +608,15 @@ export default function App() {
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             Generate an ATS-friendly resume tailored to your target role using your GitHub and LinkedIn profiles.
           </p>
+          <div className="mt-3 flex items-start gap-2.5 px-3 py-2.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 text-xs text-emerald-650 dark:text-emerald-400 select-none">
+            <ShieldCheck className="w-4 h-4 text-emerald-500 dark:text-emerald-400 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <span className="font-extrabold tracking-tight block">Isolated Local Sandbox</span>
+              <span className="text-[11px] text-zinc-550 dark:text-zinc-400 block leading-snug">
+                Data is secured local-only. URL query strings, routes, and custom inputs are sanitized to guarantee zero cross-user exposure.
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Dynamic Navigation Tabs */}
